@@ -1,0 +1,23 @@
+Package: ShipEF
+Version: 0.1
+Date: 5/18/2021
+Title: USEPA Ship Emission Factors
+Description: This package contains functions to assign marine vessel emission factors.
+Authors@R: c(
+            person("Isabela", "Brown", role = c("aut")),
+            person("Michael", "Aldridge", email = "aldridge.michael@epa.gov", role=c("aut", "cre")),
+            person("Daniel", "Bizer-Cox", role = c("aut"))
+            ) 
+Maintainer: Michael Aldridge <aldridge.michael@epa.gov>
+License: MIT + file LICENSE
+Depends: R (>= 2.10)
+LazyData: true
+Imports: data.table,
+	utils,
+	stats,
+	plyr
+Suggests: testthat,
+    knitr,
+    rmarkdown
+RoxygenNote: 7.1.1
+VignetteBuilder: knitr

@@ -1,0 +1,11 @@
+pandoc: 2.11.4
+pkgdown: 1.6.1
+pkgdown_sha: ~
+articles:
+  Admiralty.Formula.Example: Admiralty.Formula.Example.html
+  HoltropMennen.Example: HoltropMennen.Example.html
+  Kristensen.Example: Kristensen.Example.html
+  OverviewOfPowerModels: OverviewOfPowerModels.html
+  Propeller.Law.Example: Propeller.Law.Example.html
+last_built: 2021-05-18T12:55Z
+

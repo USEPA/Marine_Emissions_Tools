@@ -1,0 +1,305 @@
+---
+title: "Overview of ShipEF"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Overview of ShipEF}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+ library(ShipEF)
+
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+The ShipEF package provides functions for assigning emission factors to commercial marine vessels (CMV). For various pollutants, emission factors depend on vessel characteristics, vessel operating modes, and/or vessel location. 
+
+This example demonstrates how to use the ShipEF package in conjunction with ship power estimates and activity data to calculate applicable emission factors. It also includes the calculation of emission quantities using the emission factors and the example activity data.
+
+Since the ShipEF calculations use ship power estimates and activity data as inputs, the following subsections briefly describe useful data sources and then provide sample data which will be used in the rest of this example.
+
+### Vessel Characteristics Data
+Vessel characteristics data are needed to calculate the appropriate emission factor for a given ship. For example, nitrogen oxides (NOx) emission factors depend in part on when a ship's keel was laid and what kind of engine it has. 
+
+Vessel characteristics data include the following fields:
+
+* Vessel identification fields:
+    + International Maritime Organization (IMO) number 
+    + Maritime Mobile Service Identity (MMSI) 
+* Engine characteristics fields:
+    + Engine bore (the diameter of each engine cylinder, mm)
+    + Engine stroke (the stroke length of each engine cylinder, mm)
+    + Engine type (typically slow- or medium-speed diesel, among others)
+    + Engine speed (revolutions per minute [rpm])
+    + Keel-laid year (used to determine engine tier)
+* Ship type and capacity fields:
+    + Ship type
+    + Deadweight tonnage (DWT)
+    + Twenty-foot equivalent units (TEU)
+    + Gross tonnage
+* Engine operating power fields:
+    + Maximum draft (m)
+    + Service speed (kn)
+    + Total installed propulsion power (also known as maximum continuous rated engine power, measured in kW)
+
+The vessel identification fields are used to merge vessel characteristics data with vessel activity data. The engine characteristics fields are used when calculating emission factors. The engine operating power fields are used when calculating load factors, the importance of which is described in the next section. The ship type and capacity fields are not directly used by this package, but they are typically present in vessel characteristics datasets and are useful for other calculations (e.g., engine loads), and therefore are included here for completeness.
+
+Vessel characteristics data may be available for purchase in the form of vessel registry databases. EPA does not endorse or promote any specific vendor of this information. Note that port records, vessel surveys, federal databases, and online searches can supplement and validate these data. For more information regarding vessel characteristics data, see Section 3.3 of the Port Emissions Inventory Guidance.  
+
+We will now create a sample of ship registry data for four hypothetical vessels:
+
+```{r, echo=FALSE}
+shipRegistry<-data.table::data.table(
+  IMO=c(1,2,3,4),
+  MMSI=c(10,11,12,13),
+  mainEngineBore=c(320,500,420,400),
+  mainEngineStroke = c(440,2000,1764,460),
+  propulsionType=c("Oil Engine(s), Direct Drive","Oil Engine(s), Electric Drive","Steam Recip(s), Direct Drive","Gas Turbine(s), Geared Drive"),
+  mainEngineStrokeType = c(4,2,NA,NA),
+  mainEngineRPM=c(450,NA,350,650),
+  keelLaidYear=c(1999,2003,2017,2014),
+  Vessel_Type=c("Ore/Oil Carrier","Fully Cellular Container","Pure Car Carrier","Cruise Ship"),
+  DWT=c(319869,41500,21052,NA),
+  TEU=c(NA,3139,NA,NA),
+  GrossTonnage=c(156168,NA,52337,30780.787),
+  MaxDraft=c(22.28,12,10,7.52),
+  Service_Speed=c(15.9,22.7,20.5,21),
+  Propulsive_Power=c(31640,31990,15820,22705)
+)
+
+head(shipRegistry)
+```
+
+### Ship Activity Data
+Ship activity data are also needed to calculate the appropriate emission factor for a given ship. 
+
+One reason for this is that the location of the vessel is used to determine whether the vessel is inside or outside the North American Emissions Control Area (ECA), which in turn determines the fuel sulfur content.
+
+Another use of the ship activity data is to calculate load factor. Load factor is important when calculating emission factors because diesel engines are less efficient at low loads, and emissions per unit of energy tend to increase as the engine load decreases. To account for this, low load adjustment factors are applied when the propulsion engines are operating at less than 20% load. These adjustment factors are applied by default in `calcEF`. However, if engine-specific load adjustment factors are available for vessels with known engine data, they may be used instead by supplying them as an optional argument, as described later in this vignette.  
+
+A common source of ship activity data is Automatic Identification System (AIS) data. AIS equipment is used on vessels to aid navigation and to avoid collisions by broadcasting and receiving messages. These messages contain dynamic operational data, which are automatically updated with every message and include the following fields: 
+
+* Position (latitude and longitude coordinates)
+* Bearing
+* Speed 
+* Timestamp
+
+AIS data also contain static fields, which may be manually entered by the vessel operator. The static fields include (among others): 
+
+* International Maritime Organization (IMO) number
+* Maritime Mobile Service Identity (MMSI)
+* Draft
+
+The IMO and MMSI fields can be used to merge AIS data with vessel characteristics data. The combined dataset can be used to determine load factor, and the latitude and longitude coordinates can be used to determine whether or not the vessel is inside or outside the ECA.
+
+For more background information on AIS data and other vessel activity data sources, see Section 3.4 of the Port Emissions Inventory Guidance.
+
+We will now create a sample of hypothetical AIS data. For simplicity, we will assign the same activity to each of the four vessels (i.e., same lat/long coordinates and timestamps).
+
+```{r, echo=FALSE}
+AIS_Sample<- data.table::data.table(
+  IMO=rep(c(1,2,3,NA), each=14),
+  MMSI=rep(c(NA,11,12,13),each=14),
+  TimeBtwnMsgs_hr=rep(c(0,0.333333,0.333333,0.333333,0.333333,0.333333,0.333333,0.333333,
+                        1,0.666667,2,0.333333,0.333333,8), 4),
+  longitude=rep(c(-149.89085,-150.46875,-151.60034,-152.02881,-151.81664,-151.41289,-152.53418,-151.67725,
+                  -148.231379,-148.71094,-173.54004,176.3086,167.8711,168.2227), 4),
+  latitude=rep(c(61.24134,61.14324,60.74306,60.11415,59.59380,59.60492,59.50088,58.89330,
+                 54.105846,49.61071,47.33882,51.01375,52.90890,57.70415), 4),
+  ShipSpeed_kn=rep(c(0,7,15,15,19,3,19,20,6,20,14,13,12,14), 4),
+  cog_deg=rep(c(360,190,180,175,167,90,195,180,95,190,335,330,320,90), 4),
+  draft=rep(c(11.14,10.800,7.50,5.64)),
+  ECA=rep(c(rep("ECA",8), rep("OutsideECA",6)) ,4)
+)
+
+head(AIS_Sample)
+```
+
+### Ship Registry Calculations
+
+The emission factor calculations depend on some vessel characteristics data that are not directly in ship registry data. Therefore, this package contains ship registry calculations that derive the needed characteristics.
+
+In this example, we do all the ship registry calculation functions first before we merge the vessel characteristics with the activity dataset. We begin by determining the engine category. In this case all vessels are Category 3 (C3) since this package is currently set up for C3 vessels.
+
+```{r}
+shipRegistry[, Category:=calcShipCategory(mainEngineBore = mainEngineBore,
+                                          mainEngineStroke = mainEngineStroke)]
+shipRegistry$Category
+```
+
+Next we calculate propulsion engine type (e.g., SSD or MSD). This function uses propulsion type, main engine stroke type (2 vs 4), and engine rpm to determine between SSD, MSD, and other engine types. It also handles missing data.
+
+```{r}
+shipRegistry[,mainEngineType:=calcEngineType(propulsionType = propulsionType,
+                                         mainEngineStrokeType = mainEngineStrokeType,
+                                         mainEngineRPM = mainEngineRPM,
+                                         main_aux_boiler = "main")]
+shipRegistry$mainEngineType
+```
+
+We also can calculate auxiliary engine type (e.g., MSD or HSD) using the same `calcEngineType` function by specifying `main_aux_boiler = "aux"`, and boiler engine type (i.e., "Boiler") by specifying `main_aux_boiler="boiler"`. Note that the `mainEngineStrokeType` and `mainEngineRPM` arguments are not needed for auxiliary or boiler engines.
+
+```{r}
+shipRegistry[, auxEngineType := calcEngineType(propulsionType = propulsionType,
+                                               main_aux_boiler = "aux")]
+shipRegistry$auxEngineType
+
+shipRegistry[, boilerEngineType := calcEngineType(propulsionType = propulsionType,
+                                                  main_aux_boiler = "boiler")]
+shipRegistry$boilerEngineType
+```
+
+Once we've calculated ship category and engine type, we can calculate engine tier. Engine tier is based on keel laid year and is important for calculating the correct NOx emission factors. For simplicity, gas turbine (GT), steam turbine (ST), LNG and all non-C3 engines are labeled "Tier 0" in this package since they are not covered by the C3 NOx regulations. 
+
+```{r}
+shipRegistry[,tier:=calcTier(engineType = mainEngineType,
+                             keelLaidYear = keelLaidYear,
+                             shipCategory = Category)]
+shipRegistry$tier
+```
+
+### Merging Vessel Characteristics and AIS
+
+Now that the vessel parameters have been calculated, the ship registry and AIS activity datasets can be merged so that engine load can be calculated. To simulate real AIS data handling issues, some of our AIS data matches our ship registry data by IMO Number, while the remaining will have to match AIS data to the ship registry data by Maritime Mobile Service Number (MMSI).
+
+The IMO Number matching is a preferred method since this number is given to the ship when its keel is laid and stays with the vessel for its entire life. The MMSI number is attached to the radio transmitter of the vessel and it is possible for the MMSI number to change for a vessel if the transmitter changes. 
+
+To handle the merge, we will create a `VesselID` field in both tables that will contain the IMO Number if available, and the MMSI otherwise. Then we merge using the `VesselID` field.
+
+```{r}
+#Assign VesselID for AIS Sample
+AIS_Sample[which(AIS_Sample$MMSI %in% shipRegistry$MMSI), VesselID:=MMSI]
+AIS_Sample[which(AIS_Sample$IMO %in% shipRegistry$IMO), VesselID:=IMO]
+
+#Assign VesselID for shipRegistry
+shipRegistry <- shipRegistry[MMSI%in%AIS_Sample$VesselID, VesselID:=MMSI]
+shipRegistry <- shipRegistry[IMO%in%AIS_Sample$VesselID, VesselID:=IMO]
+
+#Merge AIS_Sample with ship registry for those that are non-NA Vessel ID
+dt <- shipRegistry[is.na(VesselID)==FALSE,!names(shipRegistry)%in%c("IMO","MMSI"),with=FALSE][AIS_Sample[is.na(VesselID)==FALSE,!names(shipRegistry)%in%c("IMO","MMSI"),with=FALSE], on="VesselID"]
+```
+
+### Engine Load and Load Factors
+
+Now that ship registry and AIS activity data have been combined, we can calculate engine load. EPA has a separate package for this, `ShipPowerModel`. For the purposes of this vignette, the main engine loads were calculated using `ShipPowerModel::calcAdmPwr()`, and saved in the `mainLoad` variable defined below. The auxiliary and boiler loads were calculated using `ShipPowerModel::calcAuxBoilerLoad()` and saved into `auxLoad` and `boilerLoad`, respectively.
+
+Load factor is calculated by dividing the instantaneous main engine load by the installed propulsive power.
+
+```{r}
+mainLoad <- c(0.0000,1591.3279,12279.0377,10154.1340,31640.0000,632.8000,
+              24954.6428,24069.0585,1023.0423,31640.0000,9983.3124,6609.9652,
+              8184.3384,12730.6230,0.0000,1576.1479,24414.4723,23915.1468,
+              31990.0000,639.8000,31990.0000,31990.0000,1200.2675,31990.0000,
+              19849.8702,15567.8748,9602.1397,12609.1830,0.0000,1357.2915,
+              10473.1613,8660.7670,15820.0000,316.4000,15820.0000,15820.0000,
+              872.5836,15820.0000,8515.0681,5637.8385,6980.6689,10858.3320,
+              0.0000,1527.6124,22705.0000,22705.0000,22705.0000,454.1000,
+              22705.0000,22705.0000,1163.3067,22705.0000,19238.6182,15088.4815,
+              9306.4537,12220.8989)
+
+auxLoad <- c(970,730,490,490,490,490,490,490,730,490,490,490,490,490,940,2470,
+             1390,1390,1390,1390,1390,1390,2470,1390,1390,1390,1390,1390,1200,
+             2720,950,950,950,950,950,950,2720,950,950,950,950,950,3500,5460,
+             3500,3500,3500,3500,3500,3500,5460,3500,3500,3500,3500,3500)
+
+boilerLoad <- c(100,100,0,0,0,100,0,0,100,0,0,0,0,0,450,450,0,0,0,450,0,0,450,0,
+                0,0,0,0,300,300,0,0,0,300,0,0,300,0,0,0,0,0,1000,1000,0,0,0,
+                1000,0,0,1000,0,0,0,0,0)
+
+dt[, MainEngineLoad_kW := mainLoad]
+dt[, AuxEngineLoad_kW := auxLoad]
+dt[, BoilerEngineLoad_kW := boilerLoad]
+
+dt[, loadFactor := MainEngineLoad_kW/Propulsive_Power]
+```
+
+
+### Assigning Emission Factors
+
+Now that we've assigned engine loads, we can assign emission factors. This package has an option to calculate base emission factors and low load adjustment factors separately, but the most typical use case will be to calculate emission factors which could be directly applied to the vessel activity, so this vignette will demonstrate how to calculate the emission factors with the low load adjustment factors already applied. 
+
+Since there are separate emission factors for main, auxiliary, and boiler engines, it can be useful to separate these into 3 different data tables. In practice, these data tables can become very large, so only the columns necessary for calculating the emission factors and the final emission quantities need to be retained.
+
+For calculating main engine emission factors, we need the main engine type and engine tier for selecting the correct emission factors, location to specify the fuel sulfur content, and load factor for calculating the low load adjustment factors. We need the main engine load and time between messages to calculate the emission quantities. It is also helpful to retain the vessel ID.
+
+```{r}
+main <- dt[, .(VesselID, mainEngineType, tier, ECA, loadFactor, MainEngineLoad_kW, TimeBtwnMsgs_hr)]
+```
+
+Next, for calculating the auxiliary engine emission factors, we need the auxiliary engine type, tier, and location, but not load factor. Like for the main engine data table, we will also retain the auxiliary engine load, time between messages, and vessel ID.
+
+```{r}
+aux <- dt[, .(VesselID, auxEngineType, tier, ECA, AuxEngineLoad_kW, TimeBtwnMsgs_hr)]
+```
+
+Finally, for calculating the boiler engine emission factors, we need the boiler engine type and location, and we will also retain the boiler engine load, time between messages, and vessel ID.
+
+```{r}
+boiler <- dt[, .(VesselID, boilerEngineType, ECA, BoilerEngineLoad_kW, TimeBtwnMsgs_hr)]
+```
+
+Now that we have our three separate data tables ready, we can begin to calculate the emission factors.
+
+Emission factors (g/kWh) can be assigned independently for each pollutant through the following functions:
+
+* `calcEF_CO`
+* `calcEF_CO2`
+* `calcEF_HC`
+* `calcEF_NOx`
+* `calcEF_PM`
+* `calcEF_SO2`
+
+However, when using these functions individually, `calcLLAF` needs to be used to calculate the low load adjustment factors. To simplify the process, `calcEF` acts as a wrapper function for the individual pollutants with the low load adjustment factors already applied.
+
+`calcEF` returns columns of emission factors (one column for each pollutant). In the code below, `cbind` is used to bind the columns together to form a table. 
+
+```{r}
+main <- cbind(main, calcEF(engineType = main$mainEngineType,
+                           tier = main$tier,
+                           location = main$ECA,
+                           loadFactor = main$loadFactor,
+                           pollutants = "ALL",
+                           main_aux_boiler = "main"))
+
+aux <- cbind(aux, calcEF(engineType = aux$auxEngineType,
+                         tier = aux$tier,
+                         location = aux$ECA,
+                         pollutants = "ALL",
+                         main_aux_boiler = "aux"))
+
+boiler <- cbind(boiler, calcEF(engineType = boiler$boilerEngineType,
+                               tier = NULL,
+                               location = boiler$ECA,
+                               pollutants = "ALL",
+                               main_aux_boiler = "boiler"))
+```
+
+Note that if engine-specific load adjustment factors are available for vessels with known engine data, they may be used by supplying the `inputTableLocation` argument to `calcEF`. For more information on how to do this, see `?calcEF`.
+
+### Calculating Emissions Quantity
+
+Calculating emissions quantity is a simple multiplication by this point. We identify the pollutant columns as `efCols`. Then, we use a for loop to calculate the emission quantity for each pollutant in the main, auxiliary, and boiler data tables.
+
+The columns specified in `efCols` contain the emission factors in g/kWh. The emissions quantity is calculated by multiplying the emission factor by the engine load (kW) and the time interval between messages (hr), which results in grams of emissions for that specific time interval.
+
+```{r}
+efCols <- c("pm2.5","pm10","so2","co2","co","hc","nox")
+
+for(efCol in efCols) {
+  quantColName <- paste(efCol, "Quant", sep='')
+  main[, (quantColName) := main[[efCol]] * MainEngineLoad_kW * TimeBtwnMsgs_hr]
+  aux[, (quantColName) := aux[[efCol]] * AuxEngineLoad_kW * TimeBtwnMsgs_hr]
+  boiler[, (quantColName) := boiler[[efCol]] * BoilerEngineLoad_kW * TimeBtwnMsgs_hr]
+}
+```
+
+## References
+
+U.S. Environmental Protection Agency. 2020. "Port Emissions Inventory Guidance: Methodologies for Estimating Port-Related and Goods Movement Mobile Source Emissions." EPA-420-B-20-046. <https://nepis.epa.gov/Exe/ZyPDF.cgi?Dockey=P100AU0I.PDF>
+
+U.S. Environmental Protection Agency. 2010. "Designation of North American Emission Control Area to Reduce Emissions from Ships." EPA-420-F-10-015. <https://nepis.epa.gov/Exe/ZyPDF.cgi?Dockey=P100AU0I.PDF>
