@@ -1,0 +1,431 @@
+---
+title: "How to Calculate Ship Power Using the Holtrop & Mennnen Model"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{How to Calculate Ship Power Using the Holtrop & Mennnen Model}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r setup, echo=FALSE, include=FALSE}
+
+library(ShipPowerModel)
+
+```
+
+This example demonstrates how to use the `ShipPowerModel` package to calculate the propulsive power in kW for a given set of ships traveling within a specified speed range using the Holtrop & Mennen model (Holtrop 1982). The calculations in this example are broken into the following sections:
+
+* estimation of vessel geometry and physical characteristics
+* calculate resistance terms
+* calculate efficiency terms
+* calculate propulsion power
+
+At the end is an example using the `calcHMPwr()` function, which wraps-up and streamlines all of the calculations used in this example. 
+
+## Input Data
+
+The needed inputs to calculate propulsive engine power with the Holtrop & Mennen method are: 
+.
+* **main engine's Maximum Continuous Rating (total installed propulsive power) (kW)**: the maximum power output that the engine can produce continuously under normal operating conditions.
+* **actual ship speed (m/s)**: This is the speed that the ship actually travels at for a given point in time.
+* **actualDraft (reported draft) (m)**: The draft that the ship operates at for a given point in time
+* **maxDraft (m)**: The maximum operating distance between the waterline and the bottom of the ship's hull.
+* **ship.type**: The type of ship that best describes the vessel. By default, the ship types modeled are:
+    + container.ship
+    + bulk.carrier
+    + tanker
+    + chemical.tanker
+    + liquefied.gas.tanker
+    + oil.tanker
+    + other.tanker
+    + general.cargo
+    + ro.ro
+    + passenger
+    + cruise
+    + cruise.ed
+    + ferry.pax
+    + ferry.ro.pax
+    + yacht
+    + tug
+    + service.tug
+* **length between perpendiculars (lbp) (m)**: Length of the ship along its summer load line between stem of the ship to its sternpost. 
+* **breadth (m)**: The width of the hull at its widest point.
+* **maxDisplacement (m^3)**: The weight of the water displaced by the ship's hull at its summer load line maximum draft.
+
+For this example we will load example ship data from the library:
+```{r load data}
+ships <- read.csv(system.file("extdata", "Sample.Ships.csv", package = "ShipPowerModel"))
+
+ships$ID <- c(1:6)
+
+ships <- ships[, c("ID", "ship.type", "lbp", "breadth", "Displacement", "maxDraft", "actualDraft", "MCR")]
+
+names(ships) <- gsub("Displacement", "maxDisplacement", names(ships))
+
+```
+
+```{r, echo=FALSE}
+knitr::kable(ships)
+```
+
+## Estimate Vessel Characteristics
+
+### Convert Units
+Typically, maximum ship displacement is recorded in tonnage units. Since this package uses internally consistent units, tonnage needs to be converted to cubic meters for the maximum displacement field.
+
+```{r}
+ships$maxDisplacement <- calcDispUnitConversion(tonnageDisp = ships$maxDisplacement, 
+                                                seawaterDensity = 1.025)
+```
+
+### Estimate Additional Required Inputs
+
+Some inputs needed for the Holtrop & Mennen power calculations are not commonly available, so they are instead estimated from parameters that are available. These include waterline length (`lwl`), propeller diameter (`propDiam`), and number of propellers (`nProp`) (Kristensen 2013).
+
+
+```{r}
+ships$lwl <- calclwl(ships$ship.type,
+                     ships$lbp)
+
+ships$propDiam <- calcPropDia(ships$ship.type,
+                              ships$maxDraft)
+
+ships$nProp <- calcPropNum(ships$ship.type)
+```
+
+```{r, echo=FALSE}
+knitr::kable(ships[,c("ID","maxDisplacement","lwl","propDiam","nProp")])
+```
+
+### Calculate Coefficients of Form
+
+Coefficients of form are typically used parameterize the ship hull shape and size. These include:
+
+* maximum block coefficient (`Cb`)
+* waterline block coefficient (`Cbw`) 
+* midship section coefficient (`Cm`)
+* prismatic coefficient (`Cp`)
+* waterplane area coefficient (`Cwp`)
+
+Any function that requires ship type also offers ship type grouping options in order to determine which ship types should be modeled as tankers, general cargo, etc. In this example, our ship types are: "container.ship", "bulk.carrier", and "tanker".  These are already included in our default `tankerBulkCarrierShipTypes`; however, to show their usage, the groupings are included below. For example, if one of your ship types was a "product.tanker", you might want to add that to the `tankerBulkCarrierShipTypes` list. 
+
+```{r}
+ships$Cb <- calcCb(ships$maxDisplacement,
+                   ships$lwl,
+                   ships$breadth,
+                   ships$maxDraft)
+
+ships$Cbw <- calcCbw(ships$Cb,
+                     ships$actualDraft,
+                     ships$maxDraft)
+
+ships$Cm <- calcCm(ships$ship.type,
+                   ships$Cbw,
+                   ships$maxDraft,
+                   ships$actualDraft,
+                   CmEquationType="kristensen",
+                   tankerBulkCarrierShipTypes = c("tanker", "bulk.carrier"))
+
+
+ships$Cp <- calcCp(ships$Cm,
+                   ships$Cbw,
+                   ships$ship.type,
+                   bounds="none",
+                   roroPaxContainerShipTypes = c("container.ship"),
+                   tankerBulkCarrierShipTypes = c("tanker", "bulk.carrier"))
+
+ships$Cwp <- calcCwp(ships$Cbw,
+                     CwpEquationType = "kristensen")
+
+```
+ 
+```{r, echo=FALSE}
+knitr::kable(ships[,c("ID","Cb", "Cbw", "Cm", "Cp", "Cwp")])
+``` 
+ 
+Holtrop & Mennen call for additional hull parameters which are not commonly available and need to be estimated. These parameters are: 
+
+* transverse bulb area (`Abt`)
+* transom area (`At`)
+* center of bulb area above keel (`hb`) 
+* longitudinal center of buoyancy (`lcb`)
+
+Holtrop & Mennen did not describe how to estimate these values in their absence, but (Rakke 2016) estimated these values given an analysis of values in (Holtrop 1982) and relationships described in (Charcharlis 2013).
+ 
+```{r}
+#Transverse Bulb Area
+ships$Abt <- calcAbt(ships$Cm, ships$breadth, ships$maxDraft)
+
+#Transom Area
+ships$At <- calcAt(ships$Cm, ships$breadth, ships$maxDraft)
+    
+#Center of bulb area above keel
+ships$hb <- calchb(ships$maxDraft)
+    
+#longitudinal center of buoyancy
+ships$lcb <- calclcb(ships$lwl)
+
+```
+
+```{r, echo=FALSE}
+knitr::kable(ships[,c("ID","Abt","At","hb","lcb")])
+```
+ 
+Using these coefficients of form, we can now calculate the wetted surface area of the ship's hull, the ship's form factor, and the model-ship correlation resistance coefficient. The form factor is used to account for the fact that the frictional resistance coefficient is calculated for a 2D plank but is applied to a 3D hull. The Model-Ship Correlation Resistance Coefficient describes the effect of hull roughness on resistance, and corresponds to the Incremental Resistance Coefficient, used by the Kristensen method (Kristensen 2013). 
+ 
+```{r}
+#Wetted Hull Surface Area
+ships$wettedSA <- calcHMWettedSA(ships$lwl,
+                                 ships$actualDraft,
+                                 ships$breadth,
+                                 ships$Cm,
+                                 ships$Cbw,
+                                 ships$Cwp,
+                                 ships$Abt)
+
+#Form Factor
+ships$FormFactor <- calcHMFormFactor(ships$maxDraft,
+                                     ships$lwl,
+                                     ships$breadth,
+                                     ships$maxDisplacement,
+                                     ships$Cp,
+                                     Cstern = 0,
+                                     ships$lcb)
+
+#Model-Ship Correlation Resistance Coefficient
+ships$Ca <- calcHMCa(ships$maxDraft,
+                     ships$lwl,
+                     ships$Cbw,
+                     ships$breadth,
+                     forwardDraft = ships$maxDraft,
+                     ships$Abt,
+                     ships$hb)
+```
+
+```{r, echo=FALSE}
+knitr::kable(ships[,c("ID","wettedSA", "FormFactor", "Ca")])
+```
+
+## Calculate Resistance Terms
+
+The next set of calculations estimate the magnitude of resistances that the ship must overcome to maintain its speed.
+
+In this example, the ship actual speed will be a defined set of discrete speeds between 1 and 15 kn, over which we will estimate propulsion power. Typically, speed is reported in knots and needs to be converted to meters per second (m/s) for our calculations. After this step, the `ships` dataframe gets long, so we will not show summary tables for the remaining calculations.
+
+Note that these defined speeds are used to illustrate how to use this function; in practice, the actual speeds could be derived from various data sources, such as Automatic Identification System (AIS) data. 
+
+The discrete speeds are defined using `c(1:15)`, merged with the `ships` dataframe, and converted to m/s using `calcSpeedUnitConversion`.
+
+```{r}
+ships <- merge(ships, data.frame(ship.speed = c(1:15)))
+
+ships$ship.speed <- calcSpeedUnitConversion(ships$ship.speed)
+```
+
+First, we calculate the frictional resistance coefficient (`Cf`). The frictional resistance accounts for frictional interaction between the wetted surface area of the ship's hull and the surrounding water. This calculation requires both the temperature and density of the surrounding seawater. For this example, we will assume average values for both: 15 degrees Celsius and 1.025 g/cm^3^, respectively.  
+
+```{r}
+ships$Cf <- calcCf(ships$ship.speed,
+                   ships$lwl,
+                   15,
+                   seawaterDensity = 1.025)
+```
+
+To calculate the wavemaking resistance, we first need to calculate the Froude number. The Froude number relates the ship's length to its speed to characterize wave and wake behavior along the hull.
+
+```{r}
+
+ships$froudeNum <- calcFroudeNum(ships$ship.speed,
+                                 ships$lwl)
+```
+
+The wavemaking resistance refers to the energy lost by the formation of waves caused my the ship's motion through the water.
+
+```{r}
+ships$Rw <- calcHMWaveMakingRes(ships$lwl,
+                                ships$breadth,
+                                ships$Cp,
+                                ships$Cwp,
+                                ships$Cm,
+                                ships$maxDisplacement,
+                                ships$maxDraft,
+                                ships$froudeNum,
+                                ships$At,
+                                ships$hb,
+                                ships$Abt,
+                                seawaterDensity = 1.025,
+                                forwardDraft = ships$maxDraft,
+                                ships$lcb)
+```
+
+Next, we calculate the bulbous bow resistance (`Rb`), immersed transom resistance (`Rtr`), and appendages resistance (`Rapp`). These account for the geometry at the front and back of the ship, along with any additional components of the ship which extend below the waterline. For simplicity in this example, we assume that there are no additional appendages.
+
+```{r}
+#Bulbous Bow Resistance
+ships$Rb <- calcHMBulbousBowRes(ships$ship.speed,
+                                ships$maxDraft,
+                                forwardDraft=ships$maxDraft,
+                                ships$Abt,
+                                ships$hb,
+                                seawaterDensity = 1.025)
+
+#Immersed Transom Resistance
+ships$Rtr <- calcHMImmersedTransomRes(ships$ship.speed,
+                                      ships$breadth,
+                                      ships$Cwp,
+                                      ships$maxDraft,
+                                      ships$At,
+                                      seawaterDensity = 1.025)
+
+#Appendages Resistance
+ships$Rapp <- calcHMAppendageRes(ships$ship.speed,
+                                 ships$Cf,
+                                 appendagesList = (""),
+                                 wettedAppSAList = NA,
+                                 seawaterDensity = 1.025)
+
+```
+
+At this stage, we can calculate the total resistance on the ship's hull (`R`). Here, we also apply a service margin of 15% to account for the impact of weather and waves under calm water conditions.
+
+```{r}
+#Total Hull Resistance
+ships$R <- calcHMTotalRes(ships$Rapp, 
+                          ships$Rw, 
+                          ships$Rb, 
+                          ships$Rtr,
+                          seawaterDensity = 1.025,
+                          ships$wettedSA, 
+                          ships$ship.speed,
+                          ships$Cf,
+                          ships$FormFactor,
+                          ships$Ca,
+                          serviceMargin = 15)
+```
+
+## Calculate Efficiency Terms
+The next set of calculations deal with how efficiently the ship converts propulsion power into forward motion.
+The first efficiency we calculate is the hull efficiency. The hull efficiency accounts for the fact that energy is lost as the hull accelerates water flowing around it, and also lost as the propeller pulls water around the hull. The necessary inputs to calculate hull efficiency are the wake fraction and the thrust deduction factor.
+
+The wake fraction (`w`) accounts for the fact that the water passing around the propeller exists within a boundary layer of water that gets pulled along with the ship. Thus, the velocity of the ship is different than the velocity of the water flowing over the propeller, which impacts the efficiency of power transmission by the propeller. 
+
+```{r}
+#Wake Fraction
+ships$w <- calcHMWakeFraction(ships$breadth,
+                              ships$wettedSA,
+                              ships$maxDraft,
+                              ships$nProp,
+                              ships$lwl,
+                              ships$propDiam,
+                              ships$FormFactor,
+                              ships$Cf,
+                              ships$Ca,
+                              ships$Cbw,
+                              ships$Cp,
+                              ships$Cm,
+                              aftDraft = ships$maxDraft,
+                              Cstern = 0,
+                              ships$lcb)
+```
+
+The thrust deduction factor (`t`) accounts for loss of efficiency caused by water being drawn past the hull to the propeller. This water exerts a force opposite to the direction of thrust. 
+
+```{r}
+#Thrust Deduction Factor
+ships$t <- calcHMThrustFactor(ships$breadth,
+                              ships$lwl,
+                              ships$maxDraft,
+                              ships$maxDisplacement,
+                              ships$nProp,
+                              ships$Cp,
+                              ships$propDiam,
+                              ships$Cbw,
+                              Cstern = 0,
+                              ships$lcb,
+                              ships$seawaterDensity)
+```
+
+Using these terms, we calculate the open water efficiency (`no`), which accounts for how efficiently the propeller converts shaft power into a forward thrust. Here, the open water efficiency is calculated using the (Kristensen 2013) method, as the Holtrop & Mennen method uses inputs that are not readily available. 
+
+```{r}
+#Open Water Efficiency
+ships$no <- calcOpenWaterEff(ships$R,
+                             ships$t,
+                             ships$nProp,
+                             ships$w,
+                             ships$propDiam,
+                             ships$ship.speed)
+```
+
+Next, we calculate the hull efficiency (`nh`), which relates the force of the thrust generated by the propeller to the ship's effective towing power.
+
+```{r}
+#Hull Efficiency
+ships$nh <- calcHullEff(ships$t,
+                        ships$w)
+```
+
+## Calculate Propulsive Power
+With the above values calculated, we can calculated ship propulsive power for each ship sample and speed. We assume shaft efficiency (`shaftEff`) is 0.98 and relative rotational efficiency (`relRotationEff`) is 1. These assumptions follow that of (Kristensen 2013), as the Holtrop & Mennen method uses inputs that are unavailable and methods for their interpolation are not known. 
+
+```{r}
+#Propulsive Power
+ships$Power <- calcResistanceShipPwr(ships$R,
+                                     ships$ship.speed,
+                                     ships$nh,
+                                     ships$no,
+                                     ships$MCR,
+                                     shaftEff = 0.98,
+                                     relRotationEff = 1)
+```
+
+The plot below shows the power curves calculated for each of the example ships:
+
+```{r, echo = FALSE, warning=FALSE}
+ggplot2::ggplot(data=ships, 
+                ggplot2::aes(x=ship.speed,y=Power, color=as.factor(ID))
+                )+
+                ggplot2::geom_line()+
+                ggplot2::scale_x_continuous(breaks=seq(0, 8, 2), limits=c(0, 8)) +
+                ggplot2::theme_bw()+
+                ggplot2::scale_color_discrete(name = "Ship ID")+
+                ggplot2::labs(x= "ship.speed (m/s)", y="Power (kw)")
+```
+
+### Calculate Propulsive Power with calcHMPwr()
+
+Instead of running each of the above functions individually, we can run them all at once to output propulsive power with the Holtrop & Mennen method using the `calcHMPwr` function. Note `Cb` must be still be calculated as an input to this function.
+
+```{r}
+ Power <- calcHMPwr(
+  totalInstalledPwr = ships$MCR,
+  shipSpeed = ships$ship.speed,
+  actualDraft = ships$actualDraft,
+  maxDraft = ships$maxDraft,
+  shipType = ships$ship.type,
+  lwl = ships$lwl,
+  breadth = ships$breadth,
+  maxDisplacement = ships$maxDisplacement,
+  Cb = ships$Cb,
+  nProp = ships$nProp,
+  serviceMargin = 15,
+  shaftEff = 0.98,
+  relRotationEff = 1,
+  seawaterTemp = 15,
+  seawaterDensity = 1.025,
+  Cstern = 0,
+  forwardDraft = ships$maxDraft,
+  aftDraft = ships$maxDraft,
+  appendagesList = c(""),
+  wettedAppSAList = NA,
+ )
+```
+
+## References
+
+Charcharlis, A. 2013. "Designing Constraints in Evaluation of Ship Propulsion Power." Journal of KONES Powertrain and Transport. Vol. 20, No. 1 
+
+Holtrop, J. and Mennen, G.G.J. 1982. "An Approximate Power Prediction Method." International Shipbuilding Progress 29
+
+Kristensen, H.O. and Lutzen, M. 2013. "Prediction of Resistance and Propulsion Power of Ships." Technical University of Denmark and University of Southern Denmark: Project no. 2010-56, Emissionsbeslutningsstøttesystem Work Package 2, Report no. 04
+
+Rakke, S. G. 2016. "Ship Emissions Calculation from AIS." NTNU
