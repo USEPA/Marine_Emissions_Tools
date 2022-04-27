@@ -7,7 +7,7 @@
 calcEF_CO(engineType, main_aux_boiler = "main")
 }
 \arguments{
-\item{engineType}{Engine type (vector of strings) (see
+\item{engineType}{Engine type (string or vector of strings) (see
 \code{\link{calcEngineType}}). Valid values are: \itemize{
 \item "SSD"
 \item "MSD"

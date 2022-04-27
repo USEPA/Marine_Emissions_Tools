@@ -7,7 +7,7 @@
 calcEF_CO2(engineType, location, loadFactor = NULL, main_aux_boiler = "main")
 }
 \arguments{
-\item{engineType}{Engine type (vector of strings) (see
+\item{engineType}{Engine type (string or vector of strings) (see
 \code{\link{calcEngineType}}). Valid values are: \itemize{
 \item "SSD"
 \item "MSD"
@@ -20,7 +20,7 @@ calcEF_CO2(engineType, location, loadFactor = NULL, main_aux_boiler = "main")
 \item "Boiler" (boiler only)
 }}
 
-\item{location}{Location of vessel (vector of strings). Valid values are:
+\item{location}{Location of vessel (string or vector of strings). Valid values are:
 \itemize{
   \item "ECA"
   \item "OutsideECA"
@@ -70,6 +70,25 @@ calcEF_CO2(engineType = c("MSD","SSD"),
           location = c("ECA","OutsideECA"),
           main_aux_boiler = "boiler")
 
+calcEF_CO2(engineType = "SSD",
+          location = c("ECA","OutsideECA","GreatLakes"),
+          loadFactor=c(0.3,.7,.9),
+          main_aux_boiler = "main")
+
+calcEF_CO2(engineType = c("SSD","MSD","LNG"),
+          location = "ECA",
+          loadFactor=c(0.3,.7,.9),
+          main_aux_boiler = "main")
+
+calcEF_CO2(engineType = "SSD",
+          location = "ECA",
+          loadFactor=c(0.3,.7,.9),
+          main_aux_boiler = "main")
+
+calcEF_CO2(engineType = c("SSD","MSD","LNG"),
+          location = "ECA",
+          loadFactor=NULL,
+          main_aux_boiler = "main")
 }
 \references{
 \href{https://nepis.epa.gov/Exe/ZyPDF.cgi?Dockey=P10102U0.pdf}{EPA. 2020.

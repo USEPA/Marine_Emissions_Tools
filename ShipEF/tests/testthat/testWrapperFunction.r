@@ -12,7 +12,8 @@ test_that("calcEF EF Baseline works for Main Engines",
             testEFBaseline<-data.table::data.table(
               engineType=c("SSD","MSD","ST","GT","LNG"),
               location=c("OutsideECA","ECA","GreatLakes","ECA","OutsideECA"),
-              tier=c("Tier 2","Tier 3","Tier 0","Tier 0","Tier 0")
+              tier=c("Tier 2","Tier 3","Tier 0","Tier 0","Tier 0"),
+              loadFactor=rep(0.3, 5)
             )
 
             testEFBaseline[,hc:=calcEF_HC(engineType = engineType,
@@ -29,9 +30,10 @@ test_that("calcEF EF Baseline works for Main Engines",
                           ]
 
             testEFBaseline[,nox:=calcEF_NOx(engineType = engineType,
-                                           location = location,
-                                           tier = tier,
-                                           main_aux_boiler = "main")
+                                            location = location,
+                                            tier = tier,
+                                            loadFactor = loadFactor,
+                                            main_aux_boiler = "main")
                           ]
 
             testEFBaseline[,so2:=calcEF_SO2(engineType = engineType,
@@ -58,14 +60,14 @@ test_that("calcEF EF Baseline works for Main Engines",
                           ]
 
              #Run Calculation
-             calcEF_out<-data.table(
-                                      calcEF(engineType = testEFBaseline$engineType,
-                                                              location = testEFBaseline$location,
-                                                              tier = testEFBaseline$tier,
-                                                              pollutants = "ALL",
-                                                              loadBasedBSFC = "N",
-                                                              output="EF",
-                                                              main_aux_boiler = "main")
+             calcEF_out<-data.table(calcEF(engineType = testEFBaseline$engineType,
+                                           location = testEFBaseline$location,
+                                           loadFactor = testEFBaseline$loadFactor,
+                                           tier = testEFBaseline$tier,
+                                           pollutants = "ALL",
+                                           loadBasedBSFC = "N",
+                                           output="EF",
+                                           main_aux_boiler = "main")
                                     )
 
              #Compare output against benchmark
@@ -128,6 +130,7 @@ test_that("calcEF EF Load Based works for Main Engines",
             testEFLoad[,nox:=calcEF_NOx(engineType = engineType,
                                         location = location,
                                         tier = tier,
+                                        loadFactor = loadFactor,
                                         main_aux_boiler = "main")
                       ]
 
@@ -231,9 +234,10 @@ test_that("calcEF EF Load range works for Main Engines",
             ]
 
             testEFLoad[,nox:=calcEF_NOx(engineType = engineType,
-                                         location = location,
-                                         tier = tier,
-                                         main_aux_boiler = "main")
+                                        location = location,
+                                        tier = tier,
+                                        loadFactor = loadFactor,
+                                        main_aux_boiler = "main")
             ]
 
             testEFLoad[loadFactor>=0.5

@@ -13,7 +13,7 @@ A data frame with 56 rows and 9 variables:
 \item{sizeUnits}{Size units used to define subtype size ranges.}
 \item{subType}{Sub type of each ship type which are defined by size ranges.}
 \item{Transit}{Boiler engine loads (kW) assigned to each vessel by subtype when transiting. Transiting defined by \code{calcOperatingMode.r}}
-\item{Manuevering}{Boiler engine loads(kW) assigned to each vessel by subtype when manuevering. Manuevering defined by \code{calcOperatingMode.r}}
+\item{Maneuvering}{Boiler engine loads(kW) assigned to each vessel by subtype when Maneuvering. Maneuvering defined by \code{calcOperatingMode.r}}
 \item{Berth}{Boiler engine loads (kW) assigned to each vessel by subtype when berth. Berthing defined by \code{calcOperatingMode.r}}
 \item{Anchorage}{Boiler engine loads (kW) assigned to each vessel by subtype when anchoring. Anchorage defined by \code{calcOperatingMode.r}}
 }

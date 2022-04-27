@@ -1,5 +1,5 @@
 Package: ShipPowerModel
-Version: 0.1
+Version: 0.2
 Date: 05/18/2021
 Title: USEPA Ship Power Model
 Description: This package contains functions to calculate ship propulsive power and auxiliary/boiler engine loads.
@@ -17,5 +17,5 @@ Suggests: testthat,
     knitr,
     rmarkdown,
     ggplot2
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 VignetteBuilder: knitr

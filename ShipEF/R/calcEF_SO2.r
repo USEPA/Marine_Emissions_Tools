@@ -4,7 +4,7 @@
 #'Calculates the appropriate sulfur dioxide (SO2) emission factor (g/kWh) for
 #'the given parameters.
 #'
-#'@param engineType Engine type (vector of strings) (see
+#'@param engineType Engine type (string or vector of strings) (see
 #'\code{\link{calcEngineType}}). Valid values are: \itemize{
 #'\item "SSD"
 #'\item "MSD"
@@ -16,7 +16,7 @@
 #'\item "HSD" (auxiliary only)
 #'\item "Boiler" (boiler only)
 #'}
-#'@param location Location of vessel (vector of strings). Valid values are:
+#'@param location Location of vessel (string or vector of strings). Valid values are:
 #'\itemize{
 #'   \item "ECA"
 #'   \item "OutsideECA"
@@ -77,6 +77,9 @@
 #'           loadFactor = c(NA, NA, NA),
 #'           main_aux_boiler = "boiler")
 #'
+#'calcEF_SO2(engineType = "SSD",
+#'           location = c("ECA","ECA","OutsideECA"),
+#'           loadFactor = NULL)
 #'@import data.table
 #'@importFrom utils data
 #'@importFrom utils tail
@@ -91,7 +94,7 @@ calcEF_SO2<- function(engineType, location, loadFactor=NULL,
 
   #bind variables to make devtools::check() happy
   MainBSFC<-MainFuelMixTable<-AuxBSFC<-AuxFuelMixTable<-BoilerBSFC<-BoilerFuelMixTable<-
-    BSFC_LoadFactor<-BSFC_LoadFactor<-BSFC<-fuelSulfurLevel<-fuelType<-.<-Proportion<-NULL
+    BSFC_LoadFactor<-BSFC_LoadFactor<-BSFC<-fuelSulfurLevel<-fuelType<-.<-Proportion<-ID<-NULL
 
   #Read In Emission Factor DataFrames
   if(main_aux_boiler=="main"){
@@ -106,7 +109,7 @@ calcEF_SO2<- function(engineType, location, loadFactor=NULL,
   }
 
   #=======================================
-  if(main_aux_boiler=="boiler"){engineType<-rep("Boiler",length(location))}
+  if(main_aux_boiler=="boiler"){engineType<-"Boiler"}
 
   #join, BSFC, with fuel mix table,
   EF<-fuelMixTable[EF, on=c("fuelType","engineType"), allow.cartesian=TRUE]
@@ -123,21 +126,21 @@ calcEF_SO2<- function(engineType, location, loadFactor=NULL,
   )[EF, on=c("fuelType")]
 
   #Create Table of Input Values for engine type and location
-  df<-data.table::data.table(ID=seq(1,length(engineType)),
-                             engineType=engineType,
-                             Location=location)
+  inputs<-data.table::data.table(engineType=engineType, Location=location, loadFactor=loadFactor)
+  # assign unique value to each row so when the table gets exploded by merges later, we can aggregate back to original inputs
+  inputs[, ID := .I] 
 
   #add load factor to inputs table
   #Use BSFC Baseline for auxiliary and boiler emission factors (by setting loadFactor to NA)
   if(main_aux_boiler!="main"|is.null(loadFactor)){
-    df[,loadFactor:=NA]
-  }else{df[,loadFactor:=loadFactor]}
+    inputs[,loadFactor:=NA]
+  }
 
   #join inputs to emission factor table (Adds ID, and load Factor)
-  EF<-EF[df,on=c("Location","engineType"),allow.cartesian=TRUE]
+  EF<-EF[inputs,on=c("Location","engineType"),allow.cartesian=TRUE]
 
   #Updated BSFC According to Load Factor, Using Jalkanen 2012/IMO GHG 3
-  EF[,BSFC_LoadFactor:=calcLoadBSFC(loadFactor = loadFactor,
+  EF[,BSFC_LoadFactor:=ShipEF::calcLoadBSFC(loadFactor = loadFactor,
                                     BSFC_Baseline = BSFC)
      ]
 

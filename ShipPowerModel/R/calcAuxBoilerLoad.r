@@ -40,11 +40,11 @@
 #'   \item "shipType"
 #'   \item "subType"
 #'   \item "Transit"
-#'   \item "Manuevering"
+#'   \item "Maneuvering"
 #'   \item "Berth"
 #'   \item "Anchorage" }
 #'
-#' The Transit, Manuevering, Berth, and Anchorage columns should have values in
+#' The Transit, Maneuvering, Berth, and Anchorage columns should have values in
 #' kW, and should contain either auxiliary *or* boiler loads. If user-supplied
 #' loads are available for *both* auxiliary *and* boiler loads, these will need
 #' to be saved in separate files, and this function will be called twice (once
@@ -75,7 +75,7 @@
 #' }
 #'
 #' @examples
-#' calcAuxBoilerLoad(opMode = c("Berth","Manuevering"),
+#' calcAuxBoilerLoad(opMode = c("Berth","Maneuvering"),
 #'                   shipType = c("ro.ro","container.ship"),
 #'                   subType = c("ro.ro","container.ship.3000"),
 #'                   method="starcrest",

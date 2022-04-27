@@ -4,10 +4,16 @@
 \alias{calcEF_NOx}
 \title{calcEF_NOx}
 \usage{
-calcEF_NOx(engineType, location, tier, main_aux_boiler = "main")
+calcEF_NOx(
+  engineType,
+  location,
+  tier,
+  loadFactor = NULL,
+  main_aux_boiler = "main"
+)
 }
 \arguments{
-\item{engineType}{Engine type (vector of strings) (see
+\item{engineType}{Engine type (string or vector of strings) (see
 \code{\link{calcEngineType}}). Valid values are: \itemize{
 \item "SSD"
 \item "MSD"
@@ -20,14 +26,14 @@ calcEF_NOx(engineType, location, tier, main_aux_boiler = "main")
 \item "Boiler" (boiler only)
 }}
 
-\item{location}{Location of vessel (vector of strings). Valid values are:
+\item{location}{Location of vessel (string or vector of strings). Valid values are:
 \itemize{
   \item "ECA"
   \item "OutsideECA"
   \item "GreatLakes"
 }}
 
-\item{tier}{NOx engine tier (vector of strings) (see \code{\link{calcTier}}).
+\item{tier}{NOx engine tier (string or vector of strings) (see \code{\link{calcTier}}).
 Valid values are:
 \itemize{
  \item "Tier 0"
@@ -35,6 +41,10 @@ Valid values are:
  \item "Tier 2"
  \item "Tier 3"
 }}
+
+\item{loadFactor}{Fractional percentage (between 0 and 1) of main engine
+required to propel vessel at given speed (vector of numericals) (see
+ShipPowerModel library). Required for `main_aux_boiler` = "main".}
 
 \item{main_aux_boiler}{Is this calculation for a propulsive (main), auxiliary
 (aux), or boiler engine? Options: \itemize{
@@ -61,17 +71,32 @@ of the Port Emissions Inventory Guidance.
 calcEF_NOx(engineType = c("SSD","MSD","MSD-ED","GT"),
           location = c("ECA","OutsideECA","GreatLakes","ECA"),
           tier = c("Tier 2","Tier 3","Tier 1", "Tier 0"),
+          loadFactor = c(0.3, 0.3, 0.3, 0.3),
           main_aux_boiler = "main")
 
 calcEF_NOx(engineType = c("HSD","MSD","HSD","LNG"),
-          location = c("ECA","OutsideECA","GreatLakes","ECA"),
+         location = c("ECA","OutsideECA","GreatLakes","ECA"),
           tier = c("Tier 2","Tier 3","Tier 1", "Tier 0"),
+          loadFactor = c(0.3, 0.3, 0.3, 0.3),
           main_aux_boiler = "aux")
 
 calcEF_NOx(engineType = c("Boiler","Boiler"),
           location = c("ECA","OutsideECA"),
           tier = c("Tier 2", "Tier 1"),
+          loadFactor = c(0.3, 0.3, 0.3, 0.3),
           main_aux_boiler = "boiler")
+
+calcEF_NOx(engineType = "SSD",
+          location = c("ECA","OutsideECA","GreatLakes","ECA"),
+          tier = c("Tier 2","Tier 3","Tier 1", "Tier 0"),
+          loadFactor = c(0.3, 0.3, 0.3, 0.3),
+          main_aux_boiler = "main")
+
+calcEF_NOx(engineType = "SSD",
+          location = c("ECA","OutsideECA","GreatLakes","ECA"),
+          tier = "Tier 2",
+          loadFactor = c(0.3, 0.3, 0.3, 0.3),
+          main_aux_boiler = "main")
 
 }
 \references{

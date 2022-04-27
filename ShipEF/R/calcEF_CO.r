@@ -4,7 +4,7 @@
 #'Calculates the appropriate carbon monoxide (CO) emission factor (g/kWh) for
 #'the given parameters.
 #'
-#'@param engineType Engine type (vector of strings) (see
+#'@param engineType Engine type (string or vector of strings) (see
 #'\code{\link{calcEngineType}}). Valid values are: \itemize{
 #'\item "SSD"
 #'\item "MSD"

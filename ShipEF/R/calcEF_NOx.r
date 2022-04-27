@@ -4,7 +4,7 @@
 #'Calculates the appropriate nitrogen oxide (NOx) emission factor (g/kWh) for
 #'the given parameters.
 #'
-#'@param engineType Engine type (vector of strings) (see
+#'@param engineType Engine type (string or vector of strings) (see
 #'\code{\link{calcEngineType}}). Valid values are: \itemize{
 #'\item "SSD"
 #'\item "MSD"
@@ -16,13 +16,13 @@
 #'\item "HSD" (auxiliary only)
 #'\item "Boiler" (boiler only)
 #'}
-#'@param location Location of vessel (vector of strings). Valid values are:
+#'@param location Location of vessel (string or vector of strings). Valid values are:
 #'\itemize{
 #'   \item "ECA"
 #'   \item "OutsideECA"
 #'   \item "GreatLakes"
 #' }
-#'@param tier NOx engine tier (vector of strings) (see \code{\link{calcTier}}).
+#'@param tier NOx engine tier (string or vector of strings) (see \code{\link{calcTier}}).
 #'Valid values are:
 #'\itemize{
 #'  \item "Tier 0"
@@ -30,6 +30,9 @@
 #'  \item "Tier 2"
 #'  \item "Tier 3"
 #'}
+#'@param loadFactor Fractional percentage (between 0 and 1) of main engine
+#' required to propel vessel at given speed (vector of numericals) (see
+#' ShipPowerModel library). Required for `main_aux_boiler` = "main".
 #'@param main_aux_boiler Is this calculation for a propulsive (main), auxiliary
 #'(aux), or boiler engine? Options: \itemize{
 #' \item "main" (Default)
@@ -56,17 +59,32 @@
 #'calcEF_NOx(engineType = c("SSD","MSD","MSD-ED","GT"),
 #'           location = c("ECA","OutsideECA","GreatLakes","ECA"),
 #'           tier = c("Tier 2","Tier 3","Tier 1", "Tier 0"),
+#'           loadFactor = c(0.3, 0.3, 0.3, 0.3),
 #'           main_aux_boiler = "main")
 #'
 #'calcEF_NOx(engineType = c("HSD","MSD","HSD","LNG"),
-#'           location = c("ECA","OutsideECA","GreatLakes","ECA"),
+#'          location = c("ECA","OutsideECA","GreatLakes","ECA"),
 #'           tier = c("Tier 2","Tier 3","Tier 1", "Tier 0"),
+#'           loadFactor = c(0.3, 0.3, 0.3, 0.3),
 #'           main_aux_boiler = "aux")
 #'
 #'calcEF_NOx(engineType = c("Boiler","Boiler"),
 #'           location = c("ECA","OutsideECA"),
 #'           tier = c("Tier 2", "Tier 1"),
+#'           loadFactor = c(0.3, 0.3, 0.3, 0.3),
 #'           main_aux_boiler = "boiler")
+#'
+#'calcEF_NOx(engineType = "SSD",
+#'           location = c("ECA","OutsideECA","GreatLakes","ECA"),
+#'           tier = c("Tier 2","Tier 3","Tier 1", "Tier 0"),
+#'           loadFactor = c(0.3, 0.3, 0.3, 0.3),
+#'           main_aux_boiler = "main")
+#'
+#'calcEF_NOx(engineType = "SSD",
+#'           location = c("ECA","OutsideECA","GreatLakes","ECA"),
+#'           tier = "Tier 2",
+#'           loadFactor = c(0.3, 0.3, 0.3, 0.3),
+#'           main_aux_boiler = "main")
 #'
 #'@import data.table
 #'@importFrom utils data
@@ -74,10 +92,14 @@
 #'@importFrom stats weighted.mean
 #'@export
 
-calcEF_NOx<-function(engineType, location, tier, main_aux_boiler="main")
+calcEF_NOx<-function(engineType, location, tier, loadFactor=NULL, main_aux_boiler="main")
 {
   #bind variables to make devtools::check() happy
   MainFuelMixTable<-AuxNOxEF<-AuxFuelMixTable<-BoilerNOxEF<-BoilerFuelMixTable<-Proportion<-.<-NULL
+  
+  if(is.null(loadFactor) & main_aux_boiler=="main") {
+    stop("loadFactor is a required argument when calculating NOx emission factors for main engines (see ?calcEF_NOx)")
+  }
 
   #Read In Emission Factor DataFrames
   if(main_aux_boiler=="main"){
@@ -92,15 +114,26 @@ calcEF_NOx<-function(engineType, location, tier, main_aux_boiler="main")
   }
   #=================================================================
   if(main_aux_boiler=="boiler"){
-    engineType<-rep("Boiler",length(engineType))
-    tier<-rep("Tier 0",length(engineType))
-    }
+    engineType<-"Boiler"
+    tier<-"Tier 0"
+  }
 
   EF<-fuelMixTable[EF, on=c("engineType","fuelType"), allow.cartesian=TRUE]
   EF<-EF[,.(nox=weighted.mean(nox,w=Proportion)),by=c("Location","engineType","tier")]
 
-  df<-data.table::data.table(engineType=engineType, Location=location, tier=tier)
-  nox<-EF[df,on=c("Location","engineType","tier")][,c("nox")]
+  # set up user input data as a data.table
+  dt<-data.table::data.table(engineType=engineType, Location=location, tier=tier, loadFactor=loadFactor)
+  
+  if(main_aux_boiler == "main") {
+    # When T3 main engines are operating below the threshold defined below, assume
+    # that SCR technology is not working and emissions default to T2. Therefore,
+    # set tier to T2 for loads below the threshold
+    scrThreshold <- 0.25
+    dt[(loadFactor < scrThreshold) & (tier == "Tier 3"), tier := "Tier 2"]
+  }
+  
+  # merge user input data.table with emission factor table to get the corresponding NOx EFs
+  nox<-EF[dt,on=c("Location","engineType","tier")][,c("nox")]
 
   return(nox)
 }

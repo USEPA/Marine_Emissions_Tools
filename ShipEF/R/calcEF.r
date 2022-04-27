@@ -3,7 +3,7 @@
 #' @description Creates a data table of emission factors (g/kWh) for the given
 #' parameters.
 #'
-#'@param engineType Engine type (vector of strings) (see
+#'@param engineType Engine type (string or vector of strings) (see
 #'\code{\link{calcEngineType}}). Valid values are: \itemize{
 #'\item "SSD"
 #'\item "MSD"
@@ -15,13 +15,13 @@
 #'\item "HSD" (auxiliary only)
 #'\item "Boiler" (boiler only)
 #'}
-#'@param location Location of vessel (vector of strings). Valid values are:
+#'@param location Location of vessel (string or vector of strings). Valid values are:
 #'\itemize{
 #'   \item "ECA"
 #'   \item "OutsideECA"
 #'   \item "GreatLakes"
 #' }
-#'@param tier NOx engine tier (vector of strings) (see \code{\link{calcTier}}).
+#'@param tier NOx engine tier (string or vector of strings) (see \code{\link{calcTier}}).
 #'Valid values are:
 #'\itemize{
 #'  \item "Tier 0"
@@ -33,7 +33,8 @@
 #' required to propel vessel at given speed (vector of numericals) (see
 #' ShipPowerModel library). This parameter is necessary when \code{output} =
 #' "EF_LLAF" (default) so that the correct low load adjustments are applied. It
-#' is also necessary when \code{loadBasedBSFC} = "Y". However, if \code{output}
+#' is also necessary when \code{loadBasedBSFC} = "Y" or if "nox" is in the
+#' pollutants list. However, if \code{output}
 #' = "EF" \code{loadBasedBSFC} = "N", this argument will not be used and the
 #' resulting emission factor is independent of engine load.
 #'@param ECAfuelSulfurPercentage Fuel sulfur cap (percentage by weight) for the
@@ -129,6 +130,7 @@
 #'            tier=c("Tier 3","Tier 2"))
 #'calcEF(engineType=c("SSD","SSD"),
 #'            location=c("ECA","ECA"),
+#'            loadFactor=c(0.8,0.8),
 #'            output="EF",
 #'            main_aux_boiler="main",
 #'            tier=c("Tier 3","Tier 2"))
@@ -174,7 +176,8 @@ if(is.element("ALL",pollutants)){
                 "pm10")
 }
 #initialize PollutantsEF List ====================================
-PollutantsEF<- lapply(pollutants, function(x) data.table::data.table(matrix(nrow=length(engineType))))
+lengthOfInputs <- max(length(engineType), length(tier), length(location), length(loadFactor))
+PollutantsEF<- lapply(pollutants, function(x) data.table::data.table(matrix(nrow=lengthOfInputs)))
 names(PollutantsEF)<-pollutants
 
 #Turn on or off load factor based sfoc modeling =================
@@ -189,7 +192,7 @@ if(loadBasedBSFC=="N"){
   lowerBoundLF<-as.numeric(gsub("^(.*?),.*", "\\1", loadBasedBSFC))
   upperBoundLF<-as.numeric(gsub("^.*,(.*?)", "\\1", loadBasedBSFC))
 
-  loadFactorEF<-rep(NA,length(engineType))
+  loadFactorEF<-rep(NA,lengthOfInputs)
   loadFactorEF[which(loadFactor>=lowerBoundLF & loadFactor<=upperBoundLF)]<-loadFactor[
     which(loadFactor>=lowerBoundLF & loadFactor<=upperBoundLF)]
 }
@@ -206,9 +209,11 @@ for(pol in pollutants){
                       PollutantsEF[paste(pol)]<-calcEF_CO(engineType=engineType, main_aux_boiler=main_aux_boiler)
                       ,
                       ifelse(pol=="nox",
-                      PollutantsEF[paste(pol)]<-calcEF_NOx(engineType=engineType, location=location, tier=tier,main_aux_boiler=main_aux_boiler)
-                            ,
-                            ifelse(pol=="pm2.5",
+                             # Note: using the user-supplied loadFactor argument here instead of loadFactorEF because we always need to pass loadFactors to calcEF_NOx
+                             #       (loadFactorEF is NULL if loadBasedBSFC="N")
+                             PollutantsEF[paste(pol)]<-calcEF_NOx(engineType=engineType, location=location, tier=tier, loadFactor=loadFactor, main_aux_boiler=main_aux_boiler)
+                             ,
+                             ifelse(pol=="pm2.5",
                                     PollutantsEF[paste(pol)]<-calcEF_PM(engineType=engineType, location=location, loadFactor=loadFactorEF, ECAfuelSulfurPercentage=ECAfuelSulfurPercentage,
                                                                          GlobalfuelSulfurPercentage=GlobalfuelSulfurPercentage,
                                                                          pmSize = "pm2.5", main_aux_boiler=main_aux_boiler)

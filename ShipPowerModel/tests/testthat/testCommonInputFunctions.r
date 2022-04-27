@@ -326,10 +326,12 @@ test_that("calcShipType works with input file",
 test_that("calcOperatingMode works",
           {
             #create Benchmark
-            testOperatingModes<-c("Berth","Anchorage","Manuevering","Transit")
+            testOperatingModes<-c("Berth","Anchorage","Maneuvering","Transit")
             #Run Calculation
             testOperatingModes_out<-calcOperatingMode(shipSpeed = c(0.5, 2, 7, 16),
-                                                      loadFactor = c(0.02, 0.17, 0.19, 0.75)
+                                                      loadFactor = c(0.02, 0.17, 0.19, 0.75),
+                                                      berthArea = c(TRUE, FALSE, FALSE, FALSE),
+                                                      anchorageArea = c(FALSE, TRUE, FALSE, FALSE)
             )
             #Compare output against benchmark
             expect_equal(testOperatingModes_out,

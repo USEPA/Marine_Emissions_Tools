@@ -1,5 +1,5 @@
 Package: ShipEF
-Version: 0.1
+Version: 0.2
 Date: 5/18/2021
 Title: USEPA Ship Emission Factors
 Description: This package contains functions to assign marine vessel emission factors.
@@ -19,5 +19,5 @@ Imports: data.table,
 Suggests: testthat,
     knitr,
     rmarkdown
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 VignetteBuilder: knitr

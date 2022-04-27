@@ -29,6 +29,6 @@ assign("EF",get(utils::data(AuxNOxEF)))
 }
 \references{
 International Maritime Organization.Third IMO GHG Study 2014 - Final Report. London: International Maritime Organization, 2014.
-Starcrest Consulting Group,LLC.Port of Los Angeles Inventory of Air Emissions-2016, 2017.
+Starcrest Consulting Group, LLC. San Pedro Bay Ports Emissions Inventory Methodology Report Version 2, 2021.
 }
 \keyword{datasets}

@@ -58,7 +58,7 @@ For a full understanding of CMV emissions, auxiliary and boiler engine loads nee
 
 * `calcShipType()` is used to standardize ship types
 * `calcSubType()` is used to assign ship subtypes based on vessel size parameters (such as number of TEUs, tonnage, or number of passengers)
-* `calcOperatingMode()` is used to assign operating modes (such as at berth, maneuvering, in transit, or at anchor) based on ship speed and main engine load factor (derived from any of the above ship power models)
+* `calcOperatingMode()` is used to assign operating modes (such as at berth, maneuvering, in transit, or at anchor) based on ship speed, main engine load factor (derived from any of the above ship power models), and geospatial information (e.g., is the vessel in a berth or anchorage area?).
 
 With each of these in hand, `calcAuxBoilerLoad()` is used to assign instantaneous auxiliary and boiler engine loads.
 

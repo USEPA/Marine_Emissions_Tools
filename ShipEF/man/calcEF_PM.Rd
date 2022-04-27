@@ -15,7 +15,7 @@ calcEF_PM(
 )
 }
 \arguments{
-\item{engineType}{Engine type (vector of strings) (see
+\item{engineType}{Engine type (string or vector of strings) (see
 \code{\link{calcEngineType}}). Valid values are: \itemize{
 \item "SSD"
 \item "MSD"
@@ -28,7 +28,7 @@ calcEF_PM(
 \item "Boiler" (boiler only)
 }}
 
-\item{location}{Location of vessel (vector of strings). Valid values are:
+\item{location}{Location of vessel (string or vector of strings). Valid values are:
 \itemize{
   \item "ECA"
   \item "OutsideECA"
@@ -90,7 +90,11 @@ calcEF_PM(engineType = c("MSD","Boiler"),
           location = c("ECA","OutsideECA"),
           pmSize = "pm10",
           main_aux_boiler = "boiler")
-
+calcEF_PM(engineType = "SSD",
+         location = c("ECA","OutsideECA","GreatLakes","ECA"),
+         loadFactor = NULL,
+         pmSize = "pm2.5",
+         main_aux_boiler = "main")
 }
 \references{
 \href{https://nepis.epa.gov/Exe/ZyPDF.cgi?Dockey=P10102U0.pdf}{EPA. 2020.

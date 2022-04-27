@@ -185,7 +185,7 @@
 #'
 #' @references
 #' International Maritime Organization.Third IMO GHG Study 2014 - Final Report. London: International Maritime Organization, 2014.
-#' Starcrest Consulting Group,LLC.Port of Los Angeles Inventory of Air Emissions-2016, 2017.
+#' Starcrest Consulting Group, LLC. San Pedro Bay Ports Emissions Inventory Methodology Report Version 2, 2021.
 #'
 #'
 #' @examples
@@ -215,7 +215,7 @@
 #' @references
 #' International Maritime Organization.Third IMO GHG Study 2014 - Final Report. London: International Maritime Organization, 2014.
 #' International Maritime Organization. Second IMO GHG Study. 4 Albert Embankment, London SE1 7SR: International Maritime Organization, 2009.
-#' Starcrest Consulting Group,LLC.Port of Los Angeles Inventory of Air Emissions-2016, 2017.
+#' Starcrest Consulting Group, LLC. San Pedro Bay Ports Emissions Inventory Methodology Report Version 2, 2021.
 #' EPA. Regulatory Impact Analysis: Control of Emissions of Air Pollution from Category 3 Marine Deisel Engines, 2009.
 #' Whall, C, D Cooper, K Archer, L Twigger, N Thurston, D Ockwell, A McIntyre, and A Ritchie. Quantification of Emissions from Ships Associated with Ship Movements between Ports in the European Community (Part 2). Cheshire: Entec UK Limited, 2002.
 #'

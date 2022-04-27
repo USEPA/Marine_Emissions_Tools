@@ -19,7 +19,7 @@ calcEF(
 )
 }
 \arguments{
-\item{engineType}{Engine type (vector of strings) (see
+\item{engineType}{Engine type (string or vector of strings) (see
 \code{\link{calcEngineType}}). Valid values are: \itemize{
 \item "SSD"
 \item "MSD"
@@ -32,7 +32,7 @@ calcEF(
 \item "Boiler" (boiler only)
 }}
 
-\item{tier}{NOx engine tier (vector of strings) (see \code{\link{calcTier}}).
+\item{tier}{NOx engine tier (string or vector of strings) (see \code{\link{calcTier}}).
 Valid values are:
 \itemize{
  \item "Tier 0"
@@ -41,7 +41,7 @@ Valid values are:
  \item "Tier 3"
 }}
 
-\item{location}{Location of vessel (vector of strings). Valid values are:
+\item{location}{Location of vessel (string or vector of strings). Valid values are:
 \itemize{
   \item "ECA"
   \item "OutsideECA"
@@ -52,7 +52,8 @@ Valid values are:
 required to propel vessel at given speed (vector of numericals) (see
 ShipPowerModel library). This parameter is necessary when \code{output} =
 "EF_LLAF" (default) so that the correct low load adjustments are applied. It
-is also necessary when \code{loadBasedBSFC} = "Y". However, if \code{output}
+is also necessary when \code{loadBasedBSFC} = "Y" or if "nox" is in the
+pollutants list. However, if \code{output}
 = "EF" \code{loadBasedBSFC} = "N", this argument will not be used and the
 resulting emission factor is independent of engine load.}
 
@@ -153,6 +154,7 @@ calcEF(engineType=c("SSD","SSD"),
            tier=c("Tier 3","Tier 2"))
 calcEF(engineType=c("SSD","SSD"),
            location=c("ECA","ECA"),
+           loadFactor=c(0.8,0.8),
            output="EF",
            main_aux_boiler="main",
            tier=c("Tier 3","Tier 2"))

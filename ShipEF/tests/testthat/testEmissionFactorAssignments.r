@@ -73,12 +73,12 @@ test_that("calcEF_NOx works for Main engines",
                          rep("Tier 3",3))
                        ,5),
               loadFactor=rep(c(0.22,0.9,0.83,0.63,0.1,0.48,0.96,0.34,0.27,0.45,0.93,0.03),5),
-              nox=c(
-                17, 18.1,   17,    16, 17,   16, 14.4, 15.3, 14.4, 3.4, 3.4, 3.4,
-                13.2, 14, 13.2, 12.2, 13, 12.2, 10.5, 11.2, 10.5, 2.6, 2.6, 2.6,
-                rep(2, 3), rep(NA,9),
-                rep(5.7,3), rep(NA,9),
-                rep(1.3,3), rep(NA,9)
+              nox=c( #T0              #T1              #T2                #T3 (last number is under low load, so reverts to T2)
+                     17, 18.1, 17,    16, 17, 16,      14.4, 15.3, 14.4,  3.4, 3.6, 14.4,
+                     13.2, 14, 13.2,  12.2, 13, 12.2,  10.5, 11.2, 10.5,  2.6, 2.8, 10.5,
+                     rep(2, 3),       rep(NA,3),       rep(NA,3),         rep(NA,3),
+                     rep(5.7,3),      rep(NA,3),       rep(NA,3),         rep(NA,3),
+                     rep(1.3,3),      rep(NA,3),       rep(NA,3),         rep(NA,3)
               )
             )
 
@@ -86,8 +86,10 @@ test_that("calcEF_NOx works for Main engines",
 
             #Run Calculation
             testcalcNox[,newNOx:= calcEF_NOx(engineType = engineType,
-                                              location = location,
-                                              tier=tier)
+                                             location = location,
+                                             tier = tier,
+                                             loadFactor = loadFactor
+                                             )
             ]
 
             #Compare output against benchmark

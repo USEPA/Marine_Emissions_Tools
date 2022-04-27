@@ -14,7 +14,7 @@ calcEF_SO2(
 )
 }
 \arguments{
-\item{engineType}{Engine type (vector of strings) (see
+\item{engineType}{Engine type (string or vector of strings) (see
 \code{\link{calcEngineType}}). Valid values are: \itemize{
 \item "SSD"
 \item "MSD"
@@ -27,7 +27,7 @@ calcEF_SO2(
 \item "Boiler" (boiler only)
 }}
 
-\item{location}{Location of vessel (vector of strings). Valid values are:
+\item{location}{Location of vessel (string or vector of strings). Valid values are:
 \itemize{
   \item "ECA"
   \item "OutsideECA"
@@ -86,6 +86,9 @@ calcEF_SO2(engineType = c("Boiler","Boiler"),
           loadFactor = c(NA, NA, NA),
           main_aux_boiler = "boiler")
 
+calcEF_SO2(engineType = "SSD",
+          location = c("ECA","ECA","OutsideECA"),
+          loadFactor = NULL)
 }
 \references{
 \href{https://nepis.epa.gov/Exe/ZyPDF.cgi?Dockey=P10102U0.pdf}{EPA. 2020.
